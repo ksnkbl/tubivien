@@ -1,0 +1,30 @@
+{
+  "users": [
+    {
+      "id": "user-admin-root",
+      "username": "admin",
+      "displayName": "Trụ Trì (Admin)",
+      "passwordHash": "dd87e04ad1acb87853f944be2b8dbb8ae809bb082bc8efda2675cdc2fe2c30e94e00c986d59e430d1f070195f0771b5bfb42998a216b1fa143b4a86657bd0062",
+      "salt": "c74576b98f3ec6360c07621586763cc7",
+      "role": "admin",
+      "characterId": "tieu-su",
+      "createdAt": 1794518064725
+    }
+  ],
+  "tracks": [
+    {
+      "id": "default-zen",
+      "title": "Thiền Tâm Nhã Khúc (Mặc định)",
+      "artist": "Chuông Chùa & Sáo Trúc",
+      "sourceType": "builtin",
+      "uploadedBy": "Hệ thống",
+      "createdAt": 1794518061939
+    }
+  ],
+  "musicState": {
+    "activeTrackId": "default-zen",
+    "isPlaying": true,
+    "updatedAt": 1794518064725,
+    "updatedBy": "Hệ thống"
+  }
+}

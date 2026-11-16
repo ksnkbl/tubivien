@@ -1,0 +1,6 @@
+{
+  "name": "Chùa Tĩnh Tâm Online",
+  "description": "Không gian đi chùa trực tuyến nhẹ nhàng dành cho 2–3 người, có chọn nhân vật, thắp hương, thỉnh chuông, nhạc thiền mặc định và bảng điều khiển âm nhạc cho quản trị viên.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

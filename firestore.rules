@@ -1,0 +1,693 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Reusable Hardened Primitives
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == 'vinhtoanlam@gmail.com' && request.auth.token.email_verified == true) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isSubAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/subadmins/$(request.auth.uid));
+    }
+
+    function hasControlRole() {
+      return isAdmin() || isSubAdmin();
+    }
+
+    function isValidCharacter(c) {
+      return c in ['tieu-su', 'ao-lam', 'cu-si', 'sen-hong', 'hanh-huong'];
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidUserPublic(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'characterId', 'role', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'characterId', 'role', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 28
+        && isValidCharacter(data.characterId)
+        && data.role in ['admin', 'player']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserPrivate(data) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'email', 'createdAt'])
+        && isValidId(data.uid)
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && data.createdAt is timestamp;
+    }
+
+    function isValidRoom(data) {
+      return data.keys().hasAll(['name', 'maxPlayers', 'memberIds', 'incenseCount', 'cushions', 'ownerId', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'maxPlayers', 'memberIds', 'incenseCount', 'cushions', 'benches', 'stupaSlots', 'ownerId', 'createdAt', 'updatedAt'])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 36
+        && data.maxPlayers is int && data.maxPlayers >= 2 && data.maxPlayers <= 10
+        && data.memberIds is list && data.memberIds.size() <= data.maxPlayers
+        && (data.memberIds.size() == 0 || data.memberIds[0] is string)
+        && data.incenseCount is number && data.incenseCount >= 0 && data.incenseCount <= 999999
+        && data.cushions is list && (data.cushions.size() == 3 || data.cushions.size() == 10)
+        && data.cushions[0] is string && data.cushions[1] is string && data.cushions[2] is string
+        && (
+          !data.keys().hasAny(['benches']) ||
+          (
+            data.benches is list
+            && data.benches.size() >= 2
+            && data.benches.size() <= 14
+            && data.benches[0] is string && data.benches[0].size() <= 128
+            && data.benches[1] is string && data.benches[1].size() <= 128
+          )
+        )
+        && (
+          !data.keys().hasAny(['stupaSlots']) ||
+          (
+            data.stupaSlots is list
+            && data.stupaSlots.size() == 3
+            && data.stupaSlots[0] is string && data.stupaSlots[0].size() <= 128
+            && data.stupaSlots[1] is string && data.stupaSlots[1].size() <= 128
+            && data.stupaSlots[2] is string && data.stupaSlots[2].size() <= 128
+          )
+        )
+        && isValidId(data.ownerId)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidRoomPlayer(data) {
+      return data.keys().hasAll(['userId', 'displayName', 'role', 'characterId', 'x', 'y', 'direction', 'pose', 'cushionIndex', 'lastActiveAt', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'displayName', 'role', 'characterId', 'x', 'y', 'direction', 'pose', 'cushionIndex', 'benchIndex', 'stupaSlot', 'chatText', 'chatExpiresAt', 'incenseCount', 'bowCount', 'bellCount', 'sweepCount', 'fishCount', 'flowerCount', 'lanternCount', 'koiFeedCount', 'wishCount', 'kitchenWashCount', 'memorialCount', 'lastActiveAt', 'updatedAt'])
+        && isValidId(data.userId)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 28
+        && data.role in ['admin', 'player']
+        && isValidCharacter(data.characterId)
+        && data.x is number && data.x >= 0 && data.x <= 2000
+        && data.y is number && data.y >= -900 && data.y <= 1400
+        && data.direction in ['left', 'right', 'up', 'down']
+        && data.pose in ['idle', 'walk', 'meditate', 'pray', 'sit']
+        && data.cushionIndex is number && data.cushionIndex >= -1 && data.cushionIndex <= 9
+        && (!data.keys().hasAny(['benchIndex']) || (data.benchIndex is number && data.benchIndex >= -1 && data.benchIndex <= 13))
+        && (!data.keys().hasAny(['stupaSlot']) || (data.stupaSlot is number && data.stupaSlot >= -1 && data.stupaSlot <= 2))
+        && (!data.keys().hasAny(['chatText']) || (data.chatText is string && data.chatText.size() <= 140))
+        && (!data.keys().hasAny(['chatExpiresAt']) || data.chatExpiresAt is number)
+        && (!data.keys().hasAny(['incenseCount']) || (data.incenseCount is number && data.incenseCount >= 0 && data.incenseCount <= 999999))
+        && (!data.keys().hasAny(['bowCount']) || (data.bowCount is number && data.bowCount >= 0 && data.bowCount <= 999999))
+        && (!data.keys().hasAny(['bellCount']) || (data.bellCount is number && data.bellCount >= 0 && data.bellCount <= 999999))
+        && (!data.keys().hasAny(['sweepCount']) || (data.sweepCount is number && data.sweepCount >= 0 && data.sweepCount <= 999999))
+        && (!data.keys().hasAny(['fishCount']) || (data.fishCount is number && data.fishCount >= 0 && data.fishCount <= 999999))
+        && (!data.keys().hasAny(['flowerCount']) || (data.flowerCount is number && data.flowerCount >= 0 && data.flowerCount <= 999999))
+        && (!data.keys().hasAny(['lanternCount']) || (data.lanternCount is number && data.lanternCount >= 0 && data.lanternCount <= 999999))
+        && (!data.keys().hasAny(['koiFeedCount']) || (data.koiFeedCount is number && data.koiFeedCount >= 0 && data.koiFeedCount <= 999999))
+        && (!data.keys().hasAny(['wishCount']) || (data.wishCount is number && data.wishCount >= 0 && data.wishCount <= 999999))
+        && (!data.keys().hasAny(['kitchenWashCount']) || (data.kitchenWashCount is number && data.kitchenWashCount >= 0 && data.kitchenWashCount <= 999999))
+        && (!data.keys().hasAny(['memorialCount']) || (data.memorialCount is number && data.memorialCount >= 0 && data.memorialCount <= 999999))
+        && data.lastActiveAt is number
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidRoomMessage(data) {
+      return data.keys().hasAll(['userId', 'displayName', 'characterId', 'text', 'kind', 'action', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'displayName', 'characterId', 'text', 'kind', 'action', 'createdAt'])
+        && isValidId(data.userId)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 28
+        && isValidCharacter(data.characterId)
+        && data.text is string && data.text.size() >= 1 && data.text.size() <= 140
+        && data.kind in ['chat', 'system', 'ritual']
+        && data.action in ['incense', 'bow', 'bell', 'woodfish', 'fortune', 'sweep', 'fish', 'flower', 'lantern', 'feed_koi', 'feed_birds', 'wish', 'kitchen_menu', 'kitchen_table', 'kitchen_sink', 'memorial', 'stupa', 'none']
+        && data.createdAt is timestamp;
+    }
+
+    function isValidGardenPlot(data) {
+      return data.keys().hasAll(['plotIndex', 'species', 'stage', 'waterCount', 'plantedBy', 'plantedByUid', 'lastWateredBy', 'updatedAt'])
+        && data.keys().hasOnly(['plotIndex', 'species', 'stage', 'waterCount', 'plantedBy', 'plantedByUid', 'lastWateredBy', 'plantedAt', 'updatedAt'])
+        && data.plotIndex is number && data.plotIndex >= 0 && data.plotIndex <= 5
+        && data.species in ['none', 'sen', 'cuc', 'mau-don', 'nhai']
+        && data.stage is number && data.stage >= 0 && data.stage <= 3
+        && data.waterCount is number && data.waterCount >= 0 && data.waterCount <= 3
+        && data.plantedBy is string && data.plantedBy.size() <= 28
+        && data.plantedByUid is string && data.plantedByUid.size() <= 128
+        && data.lastWateredBy is string && data.lastWateredBy.size() <= 28
+        && (!data.keys().hasAny(['plantedAt']) || (data.plantedAt is number && data.plantedAt >= 0))
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPondLantern(data) {
+      return data.keys().hasAll(['userId', 'displayName', 'wish', 'color', 'seed', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'displayName', 'wish', 'color', 'seed', 'createdAt'])
+        && isValidId(data.userId)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 28
+        && data.wish is string && data.wish.size() >= 1 && data.wish.size() <= 60
+        && data.color in ['gold', 'lotus', 'jade', 'ivory']
+        && data.seed is number && data.seed >= 0 && data.seed <= 100
+        && data.createdAt is timestamp;
+    }
+
+    function isValidTreeWish(data) {
+      return data.keys().hasAll(['userId', 'displayName', 'wish', 'seed', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'displayName', 'wish', 'seed', 'createdAt'])
+        && isValidId(data.userId)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 28
+        && data.wish is string && data.wish.size() >= 1 && data.wish.size() <= 60
+        && data.seed is number && data.seed >= 0 && data.seed <= 100
+        && data.createdAt is timestamp;
+    }
+
+    function isValidMusicTrack(data) {
+      return data.keys().hasAll(['title', 'artist', 'sourceType', 'uploadedBy', 'ownerId', 'createdAt'])
+        && data.keys().hasOnly(['title', 'artist', 'sourceType', 'audioUrl', 'sizeBytes', 'uploadedBy', 'ownerId', 'createdAt'])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 80
+        && data.artist is string && data.artist.size() >= 1 && data.artist.size() <= 60
+        && data.sourceType in ['builtin', 'upload']
+        && (!data.keys().hasAny(['audioUrl']) || (data.audioUrl is string && data.audioUrl.size() <= 900000))
+        && (!data.keys().hasAny(['sizeBytes']) || (data.sizeBytes is number && data.sizeBytes >= 0 && data.sizeBytes <= 20971520))
+        && data.uploadedBy is string && data.uploadedBy.size() >= 1 && data.uploadedBy.size() <= 28
+        && isValidId(data.ownerId)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidMusicState(data) {
+      return data.keys().hasAll(['activeTrackId', 'isPlaying', 'updatedBy', 'updatedAt'])
+        && data.keys().hasOnly(['activeTrackId', 'isPlaying', 'playMode', 'playlistTrackIds', 'updatedBy', 'updatedAt'])
+        && isValidId(data.activeTrackId)
+        && data.isPlaying is bool
+        && (!data.keys().hasAny(['playMode']) || data.playMode in ['single', 'playlist'])
+        && (!data.keys().hasAny(['playlistTrackIds']) || (
+          data.playlistTrackIds is list
+          && data.playlistTrackIds.size() <= 50
+          && (data.playlistTrackIds.size() == 0 || (data.playlistTrackIds[0] is string && data.playlistTrackIds[0].size() > 0 && data.playlistTrackIds[0].size() <= 128))
+        ))
+        && data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 28
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSubAdmin(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'characterId', 'appointedBy', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'characterId', 'appointedBy', 'createdAt'])
+        && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 28
+        && isValidCharacter(data.characterId)
+        && data.appointedBy is string && data.appointedBy.size() >= 1 && data.appointedBy.size() <= 28
+        && data.createdAt is timestamp;
+    }
+
+    function isValidAtmosphereState(data) {
+      return data.keys().hasAll(['time', 'weather', 'updatedBy', 'updatedAt'])
+        && data.keys().hasOnly(['time', 'weather', 'updatedBy', 'updatedAt'])
+        && data.time in ['auto', 'dawn', 'day', 'sunset', 'night']
+        && data.weather in ['auto', 'clear', 'breeze', 'mist', 'rain']
+        && data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 28
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMemorial(data) {
+      return data.keys().hasAll(['userId', 'displayName', 'deceasedName', 'wish', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'displayName', 'deceasedName', 'wish', 'createdAt'])
+        && isValidId(data.userId)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 28
+        && data.deceasedName is string && data.deceasedName.size() >= 1 && data.deceasedName.size() <= 36
+        && data.wish is string && data.wish.size() <= 80
+        && data.createdAt is timestamp;
+    }
+
+    function isValidKitchenMeal(data) {
+      return data.keys().hasAll(['foodId', 'drinkId', 'orderedByUid', 'orderedByName', 'recipientMode', 'targetUid', 'targetName', 'foodEaten', 'drinkDrunk', 'consumedByName', 'createdAt'])
+        && data.keys().hasOnly(['foodId', 'drinkId', 'orderedByUid', 'orderedByName', 'recipientMode', 'targetUid', 'targetName', 'foodEaten', 'drinkDrunk', 'consumedByName', 'createdAt'])
+        && data.foodId in ['com-sen', 'bun-hue-chay', 'dau-hu-nam', 'xoi-vo']
+        && data.drinkId in ['nuoc-ep-tao', 'tra-sen', 'sua-hat-sen', 'nuoc-mat-la-dua']
+        && isValidId(data.orderedByUid)
+        && data.orderedByName is string && data.orderedByName.size() >= 1 && data.orderedByName.size() <= 28
+        && data.recipientMode in ['self', 'player', 'all']
+        && data.targetUid is string && data.targetUid.size() <= 128
+        && data.targetName is string && data.targetName.size() >= 1 && data.targetName.size() <= 28
+        && data.foodEaten is bool
+        && data.drinkDrunk is bool
+        && data.consumedByName is string && data.consumedByName.size() <= 28
+        && data.createdAt is timestamp;
+    }
+
+    // 4. Collection Rules
+    match /test/{docId} {
+      allow get: if isSignedIn() && docId == 'connection';
+    }
+
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && isValidId(adminId) && request.auth.uid == adminId;
+      allow list, create, update, delete: if false;
+    }
+
+    match /subadmins/{subUid} {
+      allow get: if isSignedIn() && isValidId(subUid) && (request.auth.uid == subUid || isAdmin());
+      allow list: if isAdmin() && resource.data.characterId in ['tieu-su', 'ao-lam', 'cu-si', 'sen-hong', 'hanh-huong'];
+      allow create: if isAdmin()
+        && isValidId(subUid)
+        && isValidSubAdmin(incoming())
+        && incoming().uid == subUid
+        && incoming().createdAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(subUid)
+        && isValidSubAdmin(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin() && isValidId(subUid);
+    }
+
+    match /users_public/{userId} {
+      allow get: if isSignedIn() && isValidId(userId);
+      allow list: if isAdmin() && resource.data.role in ['admin', 'player'];
+      allow create: if isSignedIn()
+        && isValidId(userId)
+        && isValidUserPublic(incoming())
+        && request.auth.uid == userId
+        && incoming().uid == request.auth.uid
+        && (incoming().role == 'player' || (incoming().role == 'admin' && isAdmin()))
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn()
+        && isValidId(userId)
+        && isValidUserPublic(incoming())
+        && (
+          isAdmin() ||
+          (
+            request.auth.uid == userId
+            && incoming().uid == existing().uid
+            && incoming().role == existing().role
+            && incoming().createdAt == existing().createdAt
+            && incoming().updatedAt == request.time
+            && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'characterId', 'updatedAt'])
+          )
+        );
+      allow delete: if false;
+
+      match /private/{docId} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(docId) && (request.auth.uid == userId || isAdmin());
+        allow list: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin()) && resource.data.uid == userId;
+        allow create: if isSignedIn()
+          && isValidId(userId)
+          && isValidId(docId)
+          && isValidUserPrivate(incoming())
+          && request.auth.uid == userId
+          && incoming().uid == request.auth.uid
+          && incoming().createdAt == request.time;
+        allow update, delete: if false;
+      }
+    }
+
+    match /rooms/{roomId} {
+      allow get: if isSignedIn() && isValidId(roomId);
+      allow list: if isSignedIn() && resource.data.maxPlayers >= 2 && resource.data.maxPlayers <= 10;
+      allow create: if isAdmin()
+        && isValidId(roomId)
+        && isValidRoom(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().memberIds.size() <= incoming().maxPlayers
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn()
+        && isValidId(roomId)
+        && isValidRoom(incoming())
+        && (
+          isAdmin() ||
+          (
+            incoming().ownerId == existing().ownerId
+            && incoming().name == existing().name
+            && incoming().maxPlayers == existing().maxPlayers
+            && incoming().createdAt == existing().createdAt
+            && incoming().updatedAt == request.time
+            && (
+              (
+                !(request.auth.uid in existing().memberIds)
+                && (request.auth.uid in incoming().memberIds)
+                && incoming().memberIds.size() == existing().memberIds.size() + 1
+                && incoming().memberIds.size() <= existing().maxPlayers
+                && incoming().diff(existing()).affectedKeys().hasOnly(['memberIds', 'updatedAt'])
+              ) ||
+              (
+                (request.auth.uid in existing().memberIds)
+                && !(request.auth.uid in incoming().memberIds)
+                && incoming().memberIds.size() == existing().memberIds.size() - 1
+                && incoming().diff(existing()).affectedKeys().hasOnly(['memberIds', 'cushions', 'benches', 'stupaSlots', 'updatedAt'])
+              ) ||
+              (
+                (request.auth.uid in existing().memberIds)
+                && incoming().incenseCount == existing().incenseCount + 1
+                && incoming().diff(existing()).affectedKeys().hasOnly(['incenseCount', 'updatedAt'])
+              ) ||
+              (
+                (request.auth.uid in existing().memberIds)
+                && incoming().diff(existing()).affectedKeys().hasOnly(['cushions', 'benches', 'stupaSlots', 'updatedAt'])
+              )
+            )
+          )
+        );
+      allow delete: if isAdmin() && isValidId(roomId);
+
+      match /players/{userId} {
+        allow get: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(userId)
+          && (
+            request.auth.uid == userId
+            || (request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds)
+          );
+        allow list: if isSignedIn() && resource.data.lastActiveAt >= 0;
+        allow create: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(userId)
+          && isValidRoomPlayer(incoming())
+          && request.auth.uid == userId
+          && incoming().userId == request.auth.uid
+          && (!incoming().keys().hasAny(['incenseCount']) || incoming().incenseCount == 0)
+          && (!incoming().keys().hasAny(['bowCount']) || incoming().bowCount == 0)
+          && (!incoming().keys().hasAny(['bellCount']) || incoming().bellCount == 0)
+          && (!incoming().keys().hasAny(['sweepCount']) || incoming().sweepCount == 0)
+          && (!incoming().keys().hasAny(['fishCount']) || incoming().fishCount == 0)
+          && (!incoming().keys().hasAny(['flowerCount']) || incoming().flowerCount == 0)
+          && (!incoming().keys().hasAny(['lanternCount']) || incoming().lanternCount == 0)
+          && (!incoming().keys().hasAny(['koiFeedCount']) || incoming().koiFeedCount == 0)
+          && (!incoming().keys().hasAny(['wishCount']) || incoming().wishCount == 0)
+          && (!incoming().keys().hasAny(['kitchenWashCount']) || incoming().kitchenWashCount == 0)
+          && (!incoming().keys().hasAny(['memorialCount']) || incoming().memorialCount == 0)
+          && incoming().updatedAt == request.time
+          && (request.auth.uid in getAfter(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds);
+        allow update: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(userId)
+          && isValidRoomPlayer(incoming())
+          && (
+            isAdmin() ||
+            (
+              request.auth.uid == userId
+              && (request.auth.uid in getAfter(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds)
+              && incoming().userId == existing().userId
+              && incoming().role == existing().role
+              && incoming().updatedAt == request.time
+              && (
+                !incoming().diff(existing()).affectedKeys().hasAny(['incenseCount']) ||
+                (!existing().keys().hasAny(['incenseCount']) && incoming().incenseCount == 1) ||
+                (existing().keys().hasAny(['incenseCount']) && incoming().incenseCount == existing().incenseCount + 1)
+              )
+              && (
+                !incoming().diff(existing()).affectedKeys().hasAny(['bowCount']) ||
+                (!existing().keys().hasAny(['bowCount']) && incoming().bowCount == 1) ||
+                (existing().keys().hasAny(['bowCount']) && incoming().bowCount == existing().bowCount + 1)
+              )
+              && (
+                !incoming().diff(existing()).affectedKeys().hasAny(['bellCount']) ||
+                (!existing().keys().hasAny(['bellCount']) && incoming().bellCount == 1) ||
+                (existing().keys().hasAny(['bellCount']) && incoming().bellCount == existing().bellCount + 1)
+              )
+              && (
+                !incoming().diff(existing()).affectedKeys().hasAny(['sweepCount']) ||
+                (!existing().keys().hasAny(['sweepCount']) && incoming().sweepCount == 1) ||
+                (existing().keys().hasAny(['sweepCount']) && incoming().sweepCount == existing().sweepCount + 1)
+              )
+              && (
+                !incoming().diff(existing()).affectedKeys().hasAny(['fishCount']) ||
+                (!existing().keys().hasAny(['fishCount']) && incoming().fishCount == 1) ||
+                (existing().keys().hasAny(['fishCount']) && incoming().fishCount == existing().fishCount + 1)
+              )
+              && (
+                !incoming().diff(existing()).affectedKeys().hasAny(['flowerCount']) ||
+                (!existing().keys().hasAny(['flowerCount']) && incoming().flowerCount == 1) ||
+                (existing().keys().hasAny(['flowerCount']) && incoming().flowerCount == existing().flowerCount + 1)
+              )
+              && (
+                !incoming().diff(existing()).affectedKeys().hasAny(['lanternCount']) ||
+                (!existing().keys().hasAny(['lanternCount']) && incoming().lanternCount == 1) ||
+                (existing().keys().hasAny(['lanternCount']) && incoming().lanternCount == existing().lanternCount + 1)
+              )
+              && (
+                !incoming().diff(existing()).affectedKeys().hasAny(['koiFeedCount']) ||
+                (!existing().keys().hasAny(['koiFeedCount']) && incoming().koiFeedCount == 1) ||
+                (existing().keys().hasAny(['koiFeedCount']) && incoming().koiFeedCount == existing().koiFeedCount + 1)
+              )
+              && (
+                !incoming().diff(existing()).affectedKeys().hasAny(['wishCount']) ||
+                (!existing().keys().hasAny(['wishCount']) && incoming().wishCount == 1) ||
+                (existing().keys().hasAny(['wishCount']) && incoming().wishCount == existing().wishCount + 1)
+              )
+              && (
+                !incoming().diff(existing()).affectedKeys().hasAny(['kitchenWashCount']) ||
+                (!existing().keys().hasAny(['kitchenWashCount']) && incoming().kitchenWashCount == 1) ||
+                (existing().keys().hasAny(['kitchenWashCount']) && incoming().kitchenWashCount == existing().kitchenWashCount + 1)
+              )
+              && (
+                !incoming().diff(existing()).affectedKeys().hasAny(['memorialCount']) ||
+                (!existing().keys().hasAny(['memorialCount']) && incoming().memorialCount == 1) ||
+                (existing().keys().hasAny(['memorialCount']) && incoming().memorialCount == existing().memorialCount + 1)
+              )
+              && incoming().diff(existing()).affectedKeys().hasOnly([
+                'displayName', 'characterId', 'x', 'y', 'direction', 'pose',
+                'cushionIndex', 'benchIndex', 'stupaSlot', 'chatText', 'chatExpiresAt', 'incenseCount', 'bowCount', 'bellCount', 'sweepCount', 'fishCount', 'flowerCount', 'lanternCount', 'koiFeedCount', 'wishCount', 'kitchenWashCount', 'memorialCount', 'lastActiveAt', 'updatedAt'
+              ])
+            )
+          );
+        allow delete: if isSignedIn() && isValidId(roomId) && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+      }
+
+      match /messages/{messageId} {
+        allow get: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(messageId)
+          && (request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds);
+        allow list: if isSignedIn() && resource.data.createdAt > timestamp.date(1970, 1, 1);
+        allow create: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(messageId)
+          && isValidRoomMessage(incoming())
+          && incoming().userId == request.auth.uid
+          && incoming().createdAt == request.time
+          && (request.auth.uid in getAfter(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds);
+        allow update, delete: if false;
+      }
+
+      match /gardenPlots/{plotId} {
+        allow get: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(plotId)
+          && (request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds);
+        allow list: if isSignedIn() && resource.data.plotIndex in [0, 1, 2, 3, 4, 5];
+        allow create: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(plotId)
+          && plotId in ['plot-0', 'plot-1', 'plot-2', 'plot-3', 'plot-4', 'plot-5']
+          && isValidGardenPlot(incoming())
+          && incoming().updatedAt == request.time
+          && (request.auth.uid in getAfter(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds);
+        allow update: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(plotId)
+          && plotId in ['plot-0', 'plot-1', 'plot-2', 'plot-3', 'plot-4', 'plot-5']
+          && isValidGardenPlot(incoming())
+          && (
+            isAdmin() ||
+            (
+              (request.auth.uid in getAfter(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds)
+              && incoming().plotIndex == existing().plotIndex
+              && incoming().updatedAt == request.time
+              && incoming().diff(existing()).affectedKeys().hasOnly([
+                'species', 'stage', 'waterCount', 'plantedBy', 'plantedByUid', 'lastWateredBy', 'plantedAt', 'updatedAt'
+              ])
+            )
+          );
+        allow delete: if isAdmin();
+      }
+
+      match /lanterns/{lanternId} {
+        allow get: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(lanternId)
+          && (request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds);
+        allow list: if isSignedIn() && resource.data.createdAt > timestamp.date(1970, 1, 1);
+        allow create: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(lanternId)
+          && isValidPondLantern(incoming())
+          && incoming().userId == request.auth.uid
+          && incoming().createdAt == request.time
+          && (request.auth.uid in getAfter(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds);
+        allow update: if false;
+        allow delete: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(lanternId)
+          && (
+            isAdmin() ||
+            existing().userId == request.auth.uid ||
+            (request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds)
+          );
+      }
+
+      match /wishes/{wishId} {
+        allow get: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(wishId)
+          && (request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds);
+        allow list: if isSignedIn() && resource.data.createdAt > timestamp.date(1970, 1, 1);
+        allow create: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(wishId)
+          && isValidTreeWish(incoming())
+          && incoming().userId == request.auth.uid
+          && incoming().createdAt == request.time
+          && (request.auth.uid in getAfter(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds);
+        allow update: if false;
+        allow delete: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(wishId)
+          && (
+            isAdmin() ||
+            existing().userId == request.auth.uid ||
+            (request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds)
+          );
+      }
+      match /memorials/{memorialId} {
+        allow get: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(memorialId)
+          && (request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds);
+        allow list: if isSignedIn() && resource.data.createdAt > timestamp.date(1970, 1, 1);
+        allow create: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(memorialId)
+          && isValidMemorial(incoming())
+          && incoming().userId == request.auth.uid
+          && incoming().createdAt == request.time
+          && (request.auth.uid in getAfter(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds);
+        allow update: if false;
+        allow delete: if isAdmin() && isValidId(roomId) && isValidId(memorialId);
+      }
+
+      match /kitchenMeals/{mealId} {
+        allow get: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(mealId)
+          && (request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds);
+        allow list: if isSignedIn() && resource.data.createdAt > timestamp.date(1970, 1, 1);
+        allow create: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(mealId)
+          && isValidKitchenMeal(incoming())
+          && incoming().orderedByUid == request.auth.uid
+          && incoming().foodEaten == false
+          && incoming().drinkDrunk == false
+          && incoming().consumedByName == ''
+          && incoming().createdAt == request.time
+          && (request.auth.uid in getAfter(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds);
+        allow update: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(mealId)
+          && isValidKitchenMeal(incoming())
+          && (
+            isAdmin() ||
+            (
+              (request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds)
+              && incoming().foodId == existing().foodId
+              && incoming().drinkId == existing().drinkId
+              && incoming().orderedByUid == existing().orderedByUid
+              && incoming().orderedByName == existing().orderedByName
+              && incoming().recipientMode == existing().recipientMode
+              && incoming().targetUid == existing().targetUid
+              && incoming().targetName == existing().targetName
+              && incoming().createdAt == existing().createdAt
+              && (
+                (incoming().foodEaten == true && existing().foodEaten == false) ||
+                incoming().foodEaten == existing().foodEaten
+              )
+              && (
+                (incoming().drinkDrunk == true && existing().drinkDrunk == false) ||
+                incoming().drinkDrunk == existing().drinkDrunk
+              )
+              && incoming().diff(existing()).affectedKeys().hasOnly(['foodEaten', 'drinkDrunk', 'consumedByName'])
+            )
+          );
+        allow delete: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(mealId)
+          && (
+            isAdmin() ||
+            existing().orderedByUid == request.auth.uid ||
+            (request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds)
+          );
+      }
+    }
+
+    match /tracks/{trackId} {
+      allow get: if isSignedIn() && isValidId(trackId);
+      allow list: if isSignedIn() && resource.data.sourceType in ['builtin', 'upload'];
+      allow create: if isSignedIn()
+        && isValidId(trackId)
+        && isValidMusicTrack(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && (hasControlRole() || (trackId == 'default-zen' && incoming().sourceType == 'builtin'));
+      allow update: if isSignedIn()
+        && isValidId(trackId)
+        && isValidMusicTrack(incoming())
+        && hasControlRole()
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt;
+      allow delete: if isSignedIn() && isValidId(trackId) && hasControlRole() && trackId != 'default-zen';
+    }
+
+    match /settings/{settingId} {
+      allow get: if isSignedIn() && isValidId(settingId);
+      allow list: if false;
+      allow create: if isSignedIn()
+        && isValidId(settingId)
+        && incoming().updatedAt == request.time
+        && (
+          (
+            settingId == 'music'
+            && isValidMusicState(incoming())
+            && (hasControlRole() || incoming().activeTrackId == 'default-zen')
+          ) ||
+          (
+            settingId == 'atmosphere'
+            && isValidAtmosphereState(incoming())
+            && (hasControlRole() || (incoming().time == 'auto' && incoming().weather == 'auto'))
+          )
+        );
+      allow update: if isSignedIn()
+        && isValidId(settingId)
+        && hasControlRole()
+        && incoming().updatedAt == request.time
+        && (
+          (
+            settingId == 'music'
+            && isValidMusicState(incoming())
+            && incoming().diff(existing()).affectedKeys().hasOnly(['activeTrackId', 'isPlaying', 'playMode', 'playlistTrackIds', 'updatedBy', 'updatedAt'])
+          ) ||
+          (
+            settingId == 'atmosphere'
+            && isValidAtmosphereState(incoming())
+            && incoming().diff(existing()).affectedKeys().hasOnly(['time', 'weather', 'updatedBy', 'updatedAt'])
+          )
+        );
+      allow delete: if false;
+    }
+  }
+}

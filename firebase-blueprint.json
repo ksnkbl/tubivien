@@ -1,0 +1,631 @@
+{
+  "entities": {
+    "UserPublic": {
+      "title": "UserPublic",
+      "description": "Public temple visitor profile without PII",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 28
+        },
+        "characterId": {
+          "type": "string",
+          "enum": ["tieu-su", "ao-lam", "cu-si", "sen-hong", "hanh-huong"]
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "player"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "displayName", "characterId", "role", "createdAt", "updatedAt"]
+    },
+    "UserPrivate": {
+      "title": "UserPrivate",
+      "description": "Isolated PII for the authenticated user",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 200
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "Room": {
+      "title": "Room",
+      "description": "Temple room supporting up to 10 concurrent players",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 36
+        },
+        "maxPlayers": {
+          "type": "number",
+          "description": "Maximum concurrent players allowed (2 to 10)"
+        },
+        "memberIds": {
+          "type": "array"
+        },
+        "incenseCount": {
+          "type": "number"
+        },
+        "cushions": {
+          "type": "array",
+          "description": "10 meditation cushion occupancy slots in the elongated Chánh Điện"
+        },
+        "benches": {
+          "type": "array",
+          "description": "14 seat occupancy slots (2 seats per stone bench across 7 benches in the temple)"
+        },
+        "stupaSlots": {
+          "type": "array",
+          "description": "3 observation deck occupancy slots on the 9th tier of Bảo Tháp"
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["name", "maxPlayers", "memberIds", "incenseCount", "cushions", "ownerId", "createdAt", "updatedAt"]
+    },
+    "RoomPlayer": {
+      "title": "RoomPlayer",
+      "description": "Live position, pose, and avatar state of a player inside a temple room",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 28
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "player"]
+        },
+        "characterId": {
+          "type": "string",
+          "enum": ["tieu-su", "ao-lam", "cu-si", "sen-hong", "hanh-huong"]
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["left", "right", "up", "down"]
+        },
+        "pose": {
+          "type": "string",
+          "enum": ["idle", "walk", "meditate", "pray", "sit"]
+        },
+        "cushionIndex": {
+          "type": "number",
+          "description": "-1 when standing, or 0..9 for the 10 meditation cushions"
+        },
+        "benchIndex": {
+          "type": "number",
+          "description": "-1 when standing, or 0..13 for the 14 stone bench seats (2 per bench)"
+        },
+        "stupaSlot": {
+          "type": "number",
+          "description": "-1 when on ground, or 0..2 when standing on the 9th-tier Bảo Tháp observation deck"
+        },
+        "chatText": {
+          "type": "string",
+          "maxLength": 140
+        },
+        "chatExpiresAt": {
+          "type": "number"
+        },
+        "incenseCount": {
+          "type": "number"
+        },
+        "bowCount": {
+          "type": "number"
+        },
+        "bellCount": {
+          "type": "number"
+        },
+        "sweepCount": {
+          "type": "number"
+        },
+        "fishCount": {
+          "type": "number"
+        },
+        "flowerCount": {
+          "type": "number"
+        },
+        "lanternCount": {
+          "type": "number"
+        },
+        "koiFeedCount": {
+          "type": "number"
+        },
+        "wishCount": {
+          "type": "number"
+        },
+        "kitchenWashCount": {
+          "type": "number"
+        },
+        "memorialCount": {
+          "type": "number"
+        },
+        "lastActiveAt": {
+          "type": "number"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "displayName", "role", "characterId", "x", "y", "direction", "pose", "lastActiveAt", "updatedAt"]
+    },
+    "RoomMessage": {
+      "title": "RoomMessage",
+      "description": "Chat messages and ritual notifications inside a temple room",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 28
+        },
+        "characterId": {
+          "type": "string",
+          "enum": ["tieu-su", "ao-lam", "cu-si", "sen-hong", "hanh-huong"]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["chat", "system", "ritual"]
+        },
+        "action": {
+          "type": "string",
+          "enum": ["incense", "bow", "bell", "woodfish", "fortune", "sweep", "fish", "flower", "lantern", "feed_koi", "feed_birds", "wish", "kitchen_menu", "kitchen_table", "kitchen_sink", "memorial", "stupa", "none"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "displayName", "characterId", "text", "kind", "createdAt"]
+    },
+    "GardenPlot": {
+      "title": "GardenPlot",
+      "description": "Shared temple flower garden plot inside a room",
+      "type": "object",
+      "properties": {
+        "plotIndex": {
+          "type": "number"
+        },
+        "species": {
+          "type": "string",
+          "enum": ["none", "sen", "cuc", "mau-don", "nhai"]
+        },
+        "stage": {
+          "type": "number"
+        },
+        "waterCount": {
+          "type": "number"
+        },
+        "plantedBy": {
+          "type": "string",
+          "maxLength": 28
+        },
+        "plantedByUid": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "lastWateredBy": {
+          "type": "string",
+          "maxLength": 28
+        },
+        "plantedAt": {
+          "type": "number"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["plotIndex", "species", "stage", "waterCount", "plantedBy", "plantedByUid", "lastWateredBy", "updatedAt"]
+    },
+    "TreeWish": {
+      "title": "TreeWish",
+      "description": "Red wish ribbon tossed onto the temple Wishing Tree",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 28
+        },
+        "wish": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "seed": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "displayName", "wish", "seed", "createdAt"]
+    },
+    "PondLantern": {
+      "title": "PondLantern",
+      "description": "Floating wish lantern released on Ao Sen lotus pond",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 28
+        },
+        "wish": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "color": {
+          "type": "string",
+          "enum": ["gold", "lotus", "jade", "ivory"]
+        },
+        "seed": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "displayName", "wish", "color", "seed", "createdAt"]
+    },
+    "MusicTrack": {
+      "title": "MusicTrack",
+      "description": "Meditation track in the global temple playlist",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "artist": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "sourceType": {
+          "type": "string",
+          "enum": ["builtin", "upload"]
+        },
+        "audioUrl": {
+          "type": "string",
+          "maxLength": 900000
+        },
+        "sizeBytes": {
+          "type": "number"
+        },
+        "uploadedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 28
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["title", "artist", "sourceType", "uploadedBy", "ownerId", "createdAt"]
+    },
+    "MusicState": {
+      "title": "MusicState",
+      "description": "Global synchronized playback state controlled by Admin",
+      "type": "object",
+      "properties": {
+        "activeTrackId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "isPlaying": {
+          "type": "boolean"
+        },
+        "playMode": {
+          "type": "string",
+          "enum": ["single", "playlist"]
+        },
+        "playlistTrackIds": {
+          "type": "array",
+          "description": "Ordered subset of track IDs for sequential looping playlist playback"
+        },
+        "updatedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 28
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["activeTrackId", "isPlaying", "updatedBy", "updatedAt"]
+    },
+    "SubAdmin": {
+      "title": "SubAdmin",
+      "description": "Delegated sub-admin record with music & weather control permissions",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 28
+        },
+        "characterId": {
+          "type": "string",
+          "enum": ["tieu-su", "ao-lam", "cu-si", "sen-hong", "hanh-huong"]
+        },
+        "appointedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 28
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "displayName", "characterId", "appointedBy", "createdAt"]
+    },
+    "AtmosphereSetting": {
+      "title": "AtmosphereSetting",
+      "description": "Shared temple time-of-day and weather state controlled by Primary Admin or Sub-Admin",
+      "type": "object",
+      "properties": {
+        "time": {
+          "type": "string",
+          "enum": ["auto", "dawn", "day", "sunset", "night"]
+        },
+        "weather": {
+          "type": "string",
+          "enum": ["auto", "clear", "breeze", "mist", "rain"]
+        },
+        "updatedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 28
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["time", "weather", "updatedBy", "updatedAt"]
+    },
+    "Memorial": {
+      "title": "Memorial",
+      "description": "Memorial ceremony tribute offered at Công Viên Cầu Siêu",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 28
+        },
+        "deceasedName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 36
+        },
+        "wish": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "displayName", "deceasedName", "wish", "createdAt"]
+    },
+    "KitchenMeal": {
+      "title": "KitchenMeal",
+      "description": "Shared vegetarian meal & drink order placed on the Gian Bếp Chay table for self or companions",
+      "type": "object",
+      "properties": {
+        "foodId": {
+          "type": "string",
+          "enum": ["com-sen", "bun-hue-chay", "dau-hu-nam", "xoi-vo"]
+        },
+        "drinkId": {
+          "type": "string",
+          "enum": ["nuoc-ep-tao", "tra-sen", "sua-hat-sen", "nuoc-mat-la-dua"]
+        },
+        "orderedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "orderedByName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 28
+        },
+        "recipientMode": {
+          "type": "string",
+          "enum": ["self", "player", "all"]
+        },
+        "targetUid": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "targetName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 28
+        },
+        "foodEaten": {
+          "type": "boolean"
+        },
+        "drinkDrunk": {
+          "type": "boolean"
+        },
+        "consumedByName": {
+          "type": "string",
+          "maxLength": 28
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["foodId", "drinkId", "orderedByUid", "orderedByName", "recipientMode", "targetUid", "targetName", "foodEaten", "drinkDrunk", "consumedByName", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users_public/{userId}": {
+      "schema": { "$ref": "#/entities/UserPublic" },
+      "description": "Public profile of temple visitor (character, display name, role)"
+    },
+    "/users_public/{userId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/UserPrivate" },
+      "description": "Private PII document isolated from public profile"
+    },
+    "/subadmins/{subUid}": {
+      "schema": { "$ref": "#/entities/SubAdmin" },
+      "description": "Delegated sub-admins permitted to manage music and atmosphere settings"
+    },
+    "/rooms/{roomId}": {
+      "schema": { "$ref": "#/entities/Room" },
+      "description": "Temple room supporting 2 to 10 player slots, incense counter, 10 cushion states, and 2 stone benches"
+    },
+    "/rooms/{roomId}/players/{userId}": {
+      "schema": { "$ref": "#/entities/RoomPlayer" },
+      "description": "Active player state inside the temple room"
+    },
+    "/rooms/{roomId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/RoomMessage" },
+      "description": "Room chat and ritual events"
+    },
+    "/rooms/{roomId}/gardenPlots/{plotId}": {
+      "schema": { "$ref": "#/entities/GardenPlot" },
+      "description": "Shared temple flower garden beds planted and watered by visitors"
+    },
+    "/rooms/{roomId}/lanterns/{lanternId}": {
+      "schema": { "$ref": "#/entities/PondLantern" },
+      "description": "Floating wish lanterns released onto the lotus pond"
+    },
+    "/rooms/{roomId}/wishes/{wishId}": {
+      "schema": { "$ref": "#/entities/TreeWish" },
+      "description": "Red wish ribbons tossed onto the temple Wishing Tree"
+    },
+    "/rooms/{roomId}/memorials/{memorialId}": {
+      "schema": { "$ref": "#/entities/Memorial" },
+      "description": "Memorial ceremony tributes offered in Công Viên Cầu Siêu"
+    },
+    "/rooms/{roomId}/kitchenMeals/{mealId}": {
+      "schema": { "$ref": "#/entities/KitchenMeal" },
+      "description": "Shared vegetarian meal portions served at Gian Bếp Chay dining table"
+    },
+    "/tracks/{trackId}": {
+      "schema": { "$ref": "#/entities/MusicTrack" },
+      "description": "Default meditation music and admin-added meditation tracks"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/MusicState" },
+      "description": "Global music playback state (/settings/music) and shared atmosphere (/settings/atmosphere)"
+    }
+  }
+}
